@@ -1,0 +1,83 @@
+### GET request to example server
+GET https://examples.http-client.intellij.net/get
+    ?generated-in=IntelliJ IDEA
+
+### Создать задачу
+POST http://localhost:8080/api/tasks
+Content-Type: application/json
+
+{
+  "title": "Сделать REST API",
+  "description": "Разделить приложение на слои",
+  "priority": "HIGH"
+}
+
+###
+
+### Получить все задачи
+GET http://localhost:8080/api/tasks
+
+###
+
+### Получить задачу по ID
+GET http://localhost:8080/api/tasks/1
+
+###
+
+### Фильтр по статусу
+GET http://localhost:8080/api/tasks?status=NEW
+
+###
+
+### Фильтр по приоритету
+GET http://localhost:8080/api/tasks?priority=HIGH
+
+###
+
+### Фильтр по тегу
+GET http://localhost:8080/api/tasks?tag=java
+
+###
+
+### Комбинированный фильтр
+GET http://localhost:8080/api/tasks?status=IN_PROGRESS&priority=HIGH&tag=java
+
+###
+
+### Изменить статус
+PATCH http://localhost:8080/api/tasks/1/status
+Content-Type: application/json
+
+{
+  "status": "IN_PROGRESS"
+}
+
+###
+
+### Изменить приоритет
+PATCH http://localhost:8080/api/tasks/1/priority
+Content-Type: application/json
+
+{
+  "priority": "CRITICAL"
+}
+
+###
+
+### Добавить тег
+POST http://localhost:8080/api/tasks/1/tags
+Content-Type: application/json
+
+{
+  "tag": "java"
+}
+
+###
+
+### Удалить задачу
+DELETE http://localhost:8080/api/tasks/1
+
+###
+
+### Статистика
+GET http://localhost:8080/api/tasks/statistics
