@@ -1,15 +1,30 @@
 package com.example.tasktracker.model;
 
+import jakarta.persistence.*;
+
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
-
+@Entity
+@Table(name="tasks")
 public class Task {
-    private final int id;
-    private final String title;
-    private final String description;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private  int id;
+    @Column(nullable = false, length = 100)
+    private  String title;
+    @Column(nullable = false,length = 100)
+    private  String description;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false,length = 20)
     private  TaskPriority priority;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false,length = 20)
     private  TaskStatus status;
-    private final  Set<String> tags;
+    @Transient
+    private   Set<String> tags;
+    @Column(nullable = false,updatable = false)
+    private LocalDateTime created_at;
 
     public Task(int id, String title, String description, TaskPriority priority, TaskStatus status, Set<String> tags) {
         this.id = id;
@@ -18,6 +33,11 @@ public class Task {
         this.priority = priority;
         this.status = status;
         this.tags = new HashSet<>(tags);
+        this.created_at=LocalDateTime.now();
+    }
+
+    protected Task() {
+
     }
 
     public Set<String> getTags() {
