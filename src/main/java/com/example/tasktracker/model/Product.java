@@ -16,12 +16,15 @@ public class Product {
     private String description;
     @Column(precision = 10,scale = 2,nullable = false)
     private BigDecimal price;
+    @Column(nullable = false,length = 30)
+    private String category;
 
-    public Product(int id, String title, String description, BigDecimal price) {
+    public Product(int id, String title, String description, BigDecimal price,String category) {
         this.id = id;
         this.title = title;
         this.description = description;
         this.price = price;
+        this.category=category;
     }
 protected Product(){
 
@@ -40,5 +43,9 @@ protected Product(){
 
     public BigDecimal getPrice() {
         return price;
+    }
+
+    public String getCategory() {
+        return category;
     }
 }

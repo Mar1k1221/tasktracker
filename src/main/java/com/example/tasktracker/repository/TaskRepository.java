@@ -1,43 +1,22 @@
 package com.example.tasktracker.repository;
 
+
 import com.example.tasktracker.model.Task;
 import com.example.tasktracker.model.TaskPriority;
 import com.example.tasktracker.model.TaskStatus;
-import org.springframework.stereotype.Repository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
-import java.util.*;
+import java.util.List;
 
-@Repository
-public class TaskRepository {
-    private final Map<Integer, Task> taskMap = new HashMap<>(Map.of(
-            3,new Task(3,"Изучить Spring Boot","Разобраться с DI, Bean и архитектурой " +
-                    "приложения", TaskPriority.HIGH,
-                    TaskStatus.IN_PROGRESS, Set.of("java", "spring", "backend")),
-                    4,new Task(4,"Изучить Docker","Создать Докерфайл и запустить приложение " +
-                    "в контейнере",TaskPriority.LOW,
-                    TaskStatus.NEW, Set.of("docker","devops")),
-                    5, new Task(5,"Написать тесты","Добавить инит тесты для Service слоя",
-                    TaskPriority.MEDIUM,TaskStatus.DONE,Set.of("testing", "junit"))
-    ));
-    public Task save(Task task){
-        Task newTask = new Task(task.getId(), task.getTitle(), task.getDescription(), task.getPriority(),task.getStatus(),task.getTags());
-        taskMap.put(task.getId(), newTask);
-        return newTask;
-    }
-    public List<Task> findByAll(){
-        return new ArrayList<>(taskMap.values());
-    }
-    public Task findById(int id){
-        return taskMap.get(id);
-    }
-    public boolean deleteById(int id){
-        return taskMap.remove(id) != null;
-    }
-    public boolean existsById(int id){
-        Task taskBoolean = findById(id);
-        if (taskBoolean == null){
-            return false;
-        } return true;
-    }
+
+public interface TaskRepository extends JpaRepository<Task, Integer> {
+    List<Task> findByStatus(TaskStatus status);
+    List<Task> findByStatusAndPriority(TaskStatus status, TaskPriority priority);
+    @Query("SELECT t FROM Task t WHERE lower(t.title) LIKE lower(concat('%',:title,'%') ) ")
+    Page<Task> findByTitleContainingIgnoreCase(@Param("title") String title, Pageable pageable);
 
 }

@@ -15,12 +15,14 @@ public class Book {
     @Column(nullable = false,length = 100)
     @Enumerated(EnumType.STRING)
     private TaskStatus status;
+    @Column(nullable = false)
+    private int year;
 
-    public Book(int id, String title, TaskStatus status, String author) {
-        this.id = id;
+    public Book( String title, TaskStatus status, String author,int year) {
         this.title = title;
         this.status = status;
         this.author = author;
+        this.year=year;
 
     }
 protected Book (){
@@ -42,4 +44,7 @@ protected Book (){
         return status;
     }
 
+    public int getYear() {
+        return year;
+    }
 }

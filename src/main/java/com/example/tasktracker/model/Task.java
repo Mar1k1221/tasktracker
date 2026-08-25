@@ -26,8 +26,8 @@ public class Task {
     @Column(nullable = false,updatable = false)
     private LocalDateTime created_at;
 
-    public Task(int id, String title, String description, TaskPriority priority, TaskStatus status, Set<String> tags) {
-        this.id = id;
+    public Task( String title, String description, TaskPriority priority, TaskStatus status, Set<String> tags) {
+
         this.title = title;
         this.description = description;
         this.priority = priority;
