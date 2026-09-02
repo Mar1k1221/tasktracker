@@ -21,7 +21,9 @@ public class Task {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false,length = 20)
     private  TaskStatus status;
-    @Transient
+    @ElementCollection
+    @CollectionTable(name = "task_tags",joinColumns = @JoinColumn(name="task_id"))
+    @Column(name = "tag")
     private   Set<String> tags;
     @Column(nullable = false,updatable = false)
     private LocalDateTime created_at;
@@ -36,7 +38,7 @@ public class Task {
         this.created_at=LocalDateTime.now();
     }
 
-    protected Task() {
+    public Task() {
 
     }
 
@@ -71,5 +73,15 @@ public class Task {
         this.priority=priority;
     }
 
+    public void setTitle(String title) {
+        this.title = title;
+    }
 
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public void setCreated_at(LocalDateTime created_at) {
+        this.created_at = created_at;
+    }
 }

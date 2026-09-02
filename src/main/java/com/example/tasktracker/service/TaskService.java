@@ -14,7 +14,9 @@ import com.example.tasktracker.repository.TaskRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
@@ -38,40 +40,36 @@ public class TaskService {
 
         return taskRepository.save(newTask);
     }
-
+@Transactional(readOnly = true)
     public Task findById(int id) {
 
         return taskRepository.findById(id)
                 .orElseThrow(() ->
                         new TaskNotFoundException("Объект с таким ID не найден."));
     }
-
+@Transactional(readOnly = true)
     public List<TaskResponse> findByAll(
             TaskStatus status,
             TaskPriority priority,
             String tag) {
+List<Task> taskList;
+if (status != null && priority != null){
+    taskList = taskRepository.findByStatusAndPriority(status,priority);
+} else if (status != null) {
+    taskList = taskRepository.findByStatus(status);
 
-        List<Task> tasks = taskRepository.findAll();
-        List<TaskResponse> responses = new ArrayList<>();
+} else {
+    taskList = taskRepository.findAll();
+}
+List<TaskResponse> listResponse = new ArrayList<>();
+for (Task t:taskList){
+    if (tag != null && !t.getTags().contains(tag)){
+        continue;
+    }
+    TaskResponse taskResponse = new TaskResponse(t.getId(),t.getTitle(),t.getDescription(),t.getPriority(),t.getStatus(),t.getTags());
+    listResponse.add(taskResponse);
 
-        for (Task task : tasks) {
-
-            if (status != null && task.getStatus() != status) {
-                continue;
-            }
-
-            if (priority != null && task.getPriority() != priority) {
-                continue;
-            }
-
-            if (tag != null && !task.getTags().contains(tag)) {
-                continue;
-            }
-
-            responses.add(new TaskResponse(task));
-        }
-
-        return responses;
+} return listResponse;
     }
 
     public boolean delete(int id) {
@@ -82,8 +80,8 @@ public class TaskService {
 
         return true;
     }
-
-    public Task newStatus(
+@Transactional
+    public TaskResponse newStatus(
             int id,
             UpdateTaskStatusRequest statusRequest) {
 
@@ -99,9 +97,9 @@ public class TaskService {
 
         task.setStatus(statusRequest.getStatus());
 
-        return taskRepository.save(task);
+    return new TaskResponse(task.getId(), task.getTitle(), task.getDescription(),task.getPriority(),task.getStatus(),new java.util.HashSet<>(task.getTags()));
     }
-
+@Transactional
     public Task newPriority(
             int id,
             TaskPriority priority) {
@@ -117,9 +115,9 @@ public class TaskService {
 
         task.setPriority(priority);
 
-        return taskRepository.save(task);
+        return task;
     }
-
+@Transactional
     public Task addTags(
             int id,
             String tag) {
@@ -134,10 +132,13 @@ public class TaskService {
         }
 
         task.getTags().add(tag);
+//        if (true){
+//            throw new RuntimeException("Практика, проверка отката!");
+//        }
 
-        return taskRepository.save(task);
+       return task;
     }
-
+@Transactional(readOnly = true)
     public TaskStatisticsResponse statisticsResponse() {
 
         List<Task> taskList = taskRepository.findAll();
@@ -163,8 +164,23 @@ public class TaskService {
                 priorityCount
         );
     }
-
+@Transactional(readOnly = true)
     public Page<Task> searchByTitle(String title,Pageable pageable){
      return taskRepository.findByTitleContainingIgnoreCase(title,pageable);
+}@Transactional
+public void testRollbackCreation(){
+        Task task = new Task();
+        task.setTitle("Test Task");
+        task.setDescription("Эта задача не должна попасть в базу");
+        task.setPriority(TaskPriority.HIGH);
+        task.setStatus(TaskStatus.NEW);
+        task.setCreated_at(LocalDateTime.now());
+        taskRepository.save(task);
+        if (true){
+            throw new RuntimeException("Авария, проверяем роллбэк.");
+        }
+        task.getTags().add("test1");
+        task.getTags().add("test2");
+
 }
 }

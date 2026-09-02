@@ -8,7 +8,8 @@ import com.example.tasktracker.service.TaskService;
 import jakarta.validation.Valid;
 
 
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -51,13 +52,7 @@ public class TaskController {
 
     @PatchMapping("/{id}/status")
     public TaskResponse newStatus(@PathVariable int id ,@RequestBody UpdateTaskStatusRequest request){
-Task task = taskService.newStatus(id,request);
-return new TaskResponse(task.getId(),
-        task.getTitle(),
-        task.getDescription(),
-        task.getPriority(),
-        task.getStatus(),
-        task.getTags());
+        return taskService.newStatus(id,request); /// В логах увидим update, но с тем условием если обойти ленивую загрузку.
     }
     @PatchMapping("/{id}/priority")
     public TaskResponse changePriority(@PathVariable int id, @RequestBody UpdateTaskPriorityRequest priority){
@@ -74,6 +69,15 @@ return new TaskResponse(task.getId(),
     public ResponseEntity<Void> delete(@PathVariable int id){
          taskService.delete(id);
          return ResponseEntity.status(204).build();
+    }
+    @GetMapping("/search")
+    public Page<Task> search(@RequestParam String title, Pageable pageable){
+        return taskService.searchByTitle(title,pageable);
+    }
+    @GetMapping("/roll-back")
+    public ResponseEntity<Void> TestRollback(){
+        taskService.testRollbackCreation();
+        return ResponseEntity.ok().build();
     }
 
 
