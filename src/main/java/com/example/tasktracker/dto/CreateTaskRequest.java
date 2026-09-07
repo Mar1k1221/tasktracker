@@ -15,11 +15,14 @@ public class CreateTaskRequest {
     private final String description;
     @NotNull
     private final TaskPriority priority;
+    @NotBlank
+    private final String email;
 
-    public CreateTaskRequest(String title, String description, TaskPriority priority) {
+    public CreateTaskRequest(String title, String description, TaskPriority priority,String email) {
         this.title = title;
         this.description = description;
         this.priority = priority;
+        this.email=email;
     }
 
     public String getTitle() {
@@ -32,5 +35,9 @@ public class CreateTaskRequest {
 
     public TaskPriority getPriority() {
         return priority;
+    }
+
+    public String getEmail() {
+        return email;
     }
 }

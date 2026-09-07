@@ -35,7 +35,7 @@ public class TaskService {
                 request.getDescription(),
                 request.getPriority(),
                 TaskStatus.NEW,
-                Set.of()
+                Set.of(),request.getEmail()
         );
 
         return taskRepository.save(newTask);

@@ -1,0 +1,1 @@
+ALTER TABLE tasks ADD COLUMN times_deadline TIMESTAMPTZ NOT NULL DEFAULT now();

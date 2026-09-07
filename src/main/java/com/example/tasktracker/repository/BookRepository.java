@@ -13,7 +13,7 @@ public interface BookRepository extends JpaRepository<Book,Integer> {
 
     List<Book> findByAuthor(String author);
     List<Book> findByYear(int year);
-    @Query("SELECT b FROM Book b WHERE lower(b.title) LIKE lower(concat('%',:text,'%') ) ")
-    Page<Book> findByTitleContainingIgnoreCase(@Param("text") String text, Pageable pageable);
+   /// @Query("SELECT b FROM Book b WHERE lower(b.title) LIKE lower(concat('%',:text,'%') ) ")
+    ///Page<Book> findByTitleContainingIgnoreCase(@Param("text") String text, Pageable pageable);
 
 }

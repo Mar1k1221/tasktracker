@@ -27,8 +27,10 @@ public class Task {
     private   Set<String> tags;
     @Column(nullable = false,updatable = false)
     private LocalDateTime created_at;
+    @Column(name ="email")
+    private String email;
 
-    public Task( String title, String description, TaskPriority priority, TaskStatus status, Set<String> tags) {
+    public Task( String title, String description, TaskPriority priority, TaskStatus status, Set<String> tags,String email) {
 
         this.title = title;
         this.description = description;
@@ -36,6 +38,7 @@ public class Task {
         this.status = status;
         this.tags = new HashSet<>(tags);
         this.created_at=LocalDateTime.now();
+        this.email=email;
     }
 
     public Task() {
@@ -83,5 +86,13 @@ public class Task {
 
     public void setCreated_at(LocalDateTime created_at) {
         this.created_at = created_at;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 }
