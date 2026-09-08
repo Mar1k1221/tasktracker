@@ -13,6 +13,15 @@ Content-Type: application/json
 }
 
 ###
+### Создать задачу
+POST http://localhost:8080/api/tasks
+Content-Type: application/json
+
+{
+  "title": "Изучить БД и доделать проект ",
+  "description": "Изучить мелкие ньюансы с БД.",
+  "priority": "HIGH"
+}
 
 ### Получить все задачи
 GET http://localhost:8080/api/tasks
@@ -20,7 +29,7 @@ GET http://localhost:8080/api/tasks
 ###
 
 ### Получить задачу по ID
-GET http://localhost:8080/api/tasks/1
+GET http://localhost:8080/api/tasks/7
 
 ###
 
@@ -81,3 +90,11 @@ DELETE http://localhost:8080/api/tasks/1
 
 ### Статистика
 GET http://localhost:8080/api/tasks/statistics
+
+### Повторное добавление того же тега
+POST http://localhost:8080/api/tasks/1/tags
+Content-Type: application/json
+
+{
+  "tag": "java"
+}

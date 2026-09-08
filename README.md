@@ -1,6 +1,6 @@
 TASK TRACKER
 
-Учебный проект на Java + Spring Boot.
+Учебный проект на Java + Spring Boot + PostgreSQL.
 
 Что умеет программа:
 - создавать задачи;
@@ -18,7 +18,7 @@ TASK TRACKER
 
 controller — принимает HTTP-запросы и возвращает ответы.
 service — содержит основную бизнес-логику.
-repository — хранит задачи в Map.
+repository — хранит задачи в Базе данных.
 dto — классы для входящих и исходящих данных.
 exception — обработка ошибок.
 model — основные классы Task, TaskStatus и TaskPriority.

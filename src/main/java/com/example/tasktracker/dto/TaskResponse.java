@@ -7,14 +7,14 @@ import com.example.tasktracker.model.TaskStatus;
 import java.util.Set;
 
 public class TaskResponse {
-    private final int id;
+    private final Long id;
     private final String title;
     private final String description;
     private final TaskPriority priority;
     private final TaskStatus status;
     private final Set<String> tags;
 
-    public TaskResponse(int id, String title, String description, TaskPriority priority, TaskStatus status, Set<String> tags) {
+    public TaskResponse(Long id, String title, String description, TaskPriority priority, TaskStatus status, Set<String> tags) {
         this.id = id;
         this.title = title;
         this.description = description;
@@ -32,7 +32,7 @@ public class TaskResponse {
         this.tags = task.getTags();
     }
 
-    public int getId() {
+    public Long getId() {
         return id;
     }
 
