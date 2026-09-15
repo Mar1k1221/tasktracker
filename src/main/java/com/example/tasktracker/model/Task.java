@@ -34,7 +34,7 @@ public class Task {
         this.status = status;
         this.tags = new HashSet<>(tags);
     }
-    protected Task(){
+    public Task(){
 
     }
 
@@ -76,4 +76,10 @@ public class Task {
     public void setDescription(String description) {
         this.description = description;
     }
+
+public  boolean isEditable(TaskStatus status){
+    return status == TaskStatus.NEW;
 }
+}
+
+
