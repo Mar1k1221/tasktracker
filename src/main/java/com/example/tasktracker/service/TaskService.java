@@ -16,7 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
 
 @Service
-public class TaskService {
+public class TaskService
+{
     private final TaskRepository taskRepository;
 
     public TaskService(TaskRepository taskRepository) {
@@ -103,5 +104,6 @@ public Task update(Long id, UpdateTaskRequest request){
      return taskRepository.save(t);
 
 }
+
 
 }
