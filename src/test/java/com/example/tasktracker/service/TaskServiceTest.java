@@ -56,6 +56,55 @@ class TaskServiceTest {
         assertThrows(InvalidStatusTransitionException.class, () -> taskService.newStatus(1L, updateTaskStatusRequest));
         verify(taskRepository, never()).save(any());
     }
+    @ParameterizedTest(name = "{0} -> проверка обьекта с несуществующим id.")
+    @ValueSource(longs = {400l, 300l, 500l})
+    public void test_for_locating_againstNonexistentOne_ThrowsException(Long id) {
+        when(taskRepository.findById(id)).thenReturn(Optional.empty());
+        assertThrows(TaskNotFoundException.class, () -> taskService.findById(id));
+
+    }
+
+    @Test
+    @DisplayName("Проверка на смену приоритета у обьекта по id")
+    public void test_newPriority_Positive() {
+        Task task = new Task(1l, "psdp", "psdfpds", TaskPriority.LOW, null, new HashSet<>());
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        Task result = taskService.newPriority(1L, TaskPriority.MEDIUM);
+        assertThat(result.getPriority()).isEqualTo(TaskPriority.MEDIUM);
+        verify(taskRepository, times(1)).save(result);
+
+
+    }
+    @ParameterizedTest(name = "Проверка на добавление тега у несуществующей задачи с id {0} .")
+    @ValueSource(longs = {300L,200L,15L})
+    public void exceptionWhenAddTag_toExistent_Task(Long id){
+        when(taskRepository.findById(id)).thenReturn(Optional.empty());
+        assertThrows(TaskNotFoundException.class,()-> taskService.addTags(id, "TTT"));
+        verify(taskRepository,never()).save(any());
+
+
+
+
+    }
+    @Test
+    @DisplayName("Тест на исключение конфликта, состояние задачи не изменилось.")
+    public void conflictAvoidedTaskStateUnchanged(){
+        Set<String>tags = new HashSet<>(Set.of("ttt"));
+        Task task = new Task(1L,"sdd","sdaasd",TaskPriority.MEDIUM,TaskStatus.NEW,tags);
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        assertThrows(ConflictException.class,() -> taskService.addTags(1L,"ttt"));
+        verify(taskRepository,never()).save(any());
+
+    }
+    @Test
+    @DisplayName("Удаление по id")
+    public void test_deleteObject_positive(){
+        Task task = new Task(1L,"sdadsa","asdas",TaskPriority.MEDIUM,TaskStatus.NEW,new HashSet<>());
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        taskService.delete(1L);
+        verify(taskRepository,times(1)).delete(task);
+
+    }
 
 
 }
