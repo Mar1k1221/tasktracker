@@ -8,7 +8,7 @@ import com.example.tasktracker.service.TaskService;
 import jakarta.validation.Valid;
 
 
-
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -72,6 +72,7 @@ return new TaskResponse(task.getId(),
         return new TaskResponse(task.getId(),task.getTitle(),task.getDescription(),task.getPriority(),task.getStatus(),task.getTags());
     }
     @PostMapping("/{id}/tags")
+    @ResponseStatus(HttpStatus.CREATED)
     public TaskResponse addTags(@PathVariable Long id, @RequestBody @Valid AddTagRequest tag){
         Task task = taskService.addTags(id, tag.getTag());
         return new TaskResponse(task.getId(),task.getTitle(),task.getDescription(),task.getPriority(),task.getStatus(),task.getTags());

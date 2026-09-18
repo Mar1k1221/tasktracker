@@ -104,6 +104,17 @@ class TaskServiceTest {
         taskService.delete(1L);
         verify(taskRepository,times(1)).delete(task);
 
+Task t = new Task(1l,"AE","DSAD",null,null,new HashSet<>());
+t.setTitle("AU");
+ArgumentCaptor<Task> argumentCaptor = ArgumentCaptor.forClass(Task.class);
+verify(taskRepository).save(argumentCaptor.capture());
+Task newtask = argumentCaptor.getValue();
+assertThat(newtask.getTitle()).isEqualTo("AU");
+assertThat(newtask.getStatus()).isEqualTo(TaskStatus.NEW);
+
+
+
+
     }
 
 
