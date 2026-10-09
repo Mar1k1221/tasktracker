@@ -106,7 +106,7 @@ class TaskServiceTest {
 
 Task t = new Task(1l,"AE","DSAD",null,null,new HashSet<>());
 t.setTitle("AU");
-ArgumentCaptor<Task> argumentCaptor = ArgumentCaptor.forClass(Task.class);
+ArgumentCaptor <Task> argumentCaptor = ArgumentCaptor.forClass(Task.class);
 verify(taskRepository).save(argumentCaptor.capture());
 Task newtask = argumentCaptor.getValue();
 assertThat(newtask.getTitle()).isEqualTo("AU");
