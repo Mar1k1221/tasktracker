@@ -35,7 +35,7 @@ return taskRepository.save(task1);
     }
 @Transactional(readOnly = true)
     public List<Task> findByAll(TaskStatus status,TaskPriority priority) {
-      return taskRepository.findByStatusAndPriority(status,priority);
+    return taskRepository.findByStatusAndPriorityOptional(status, priority);
 
     }
 @Transactional

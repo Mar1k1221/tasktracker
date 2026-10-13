@@ -23,4 +23,5 @@ private final Map<TaskPriority, Integer> mapPriority;
     public Map<TaskPriority, Integer> getMapPriority() {
         return mapPriority;
     }
+
 }
