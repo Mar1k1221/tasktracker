@@ -56,6 +56,26 @@ class TaskServiceTest {
         assertThrows(InvalidStatusTransitionException.class, () -> taskService.newStatus(1L, updateTaskStatusRequest));
         verify(taskRepository, never()).save(any());
     }
+    @Test
+    public void changeStatus_newToDone_throwsExceptionAndDoesNotSave() {
+        Task task = new Task(1L, "Task", "TEST", TaskPriority.HIGH, TaskStatus.NEW, new HashSet<>());
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+
+        assertThrows(InvalidStatusTransitionException.class,
+                () -> taskService.newStatus(1L, new UpdateTaskStatusRequest(TaskStatus.DONE)));
+
+        verify(taskRepository, never()).save(any());
+    }
+    @Test
+    public void changeStatus_cancelledToNew_throwsExceptionAndDoesNotSave() {
+        Task task = new Task(1L, "Task", "TEST", TaskPriority.HIGH, TaskStatus.CANCELLED, new HashSet<>());
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+
+        assertThrows(InvalidStatusTransitionException.class,
+                () -> taskService.newStatus(1L, new UpdateTaskStatusRequest(TaskStatus.NEW)));
+
+        verify(taskRepository, never()).save(any());
+    }
     @ParameterizedTest(name = "{0} -> проверка обьекта с несуществующим id.")
     @ValueSource(longs = {400l, 300l, 500l})
     public void test_for_locating_againstNonexistentOne_ThrowsException(Long id) {
@@ -103,17 +123,6 @@ class TaskServiceTest {
         when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
         taskService.delete(1L);
         verify(taskRepository,times(1)).delete(task);
-
-Task t = new Task(1l,"AE","DSAD",null,null,new HashSet<>());
-t.setTitle("AU");
-ArgumentCaptor <Task> argumentCaptor = ArgumentCaptor.forClass(Task.class);
-verify(taskRepository).save(argumentCaptor.capture());
-Task newtask = argumentCaptor.getValue();
-assertThat(newtask.getTitle()).isEqualTo("AU");
-assertThat(newtask.getStatus()).isEqualTo(TaskStatus.NEW);
-
-
-
 
     }
 

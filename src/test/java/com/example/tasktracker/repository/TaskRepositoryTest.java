@@ -7,6 +7,7 @@ import jakarta.persistence.EntityManager;
 import org.hibernate.Session;
 import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
@@ -33,6 +34,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @TestPropertySource(properties = "spring.jpa.properties.hibernate.generate_statistics=true")
 @Testcontainers
+@Tag("integration")
 class TaskRepositoryTest {
 
     @Container
@@ -171,7 +173,7 @@ class TaskRepositoryTest {
 
     @Test
     @DisplayName("6. Список задач с тегами укладывается не больше чем в два запроса (@EntityGraph)")
-    void findAll_withTags_doesNotProduceQueryPerTask() {
+    void findByStatusAndPriorityOptional_withTags_doesNotProduceQueryPerTask() {
         for (int i = 0; i < 3; i++) {
             Task task = new Task(null, "Задача " + i, "desc", TaskPriority.LOW, TaskStatus.IN_PROGRESS, new HashSet<>());
             task.getTags().add("tag" + i);
@@ -186,7 +188,7 @@ class TaskRepositoryTest {
                 .getStatistics();
         statistics.clear();
 
-        taskRepository.findAll(PageRequest.of(0, 10))
+        taskRepository.findByStatusAndPriorityOptional(null, null)
                 .forEach(task -> assertThat(task.getTags()).isNotEmpty());
 
         assertThat(statistics.getPrepareStatementCount()).isLessThanOrEqualTo(2L);

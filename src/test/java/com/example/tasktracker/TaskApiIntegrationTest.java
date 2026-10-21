@@ -2,6 +2,7 @@ package com.example.tasktracker;
 
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
@@ -13,6 +14,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -20,6 +22,7 @@ import java.util.Objects;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
 @AutoConfigureWebTestClient
+@Tag("integration")
 class TaskApiIntegrationTest {
     @Container
     @ServiceConnection
@@ -29,7 +32,7 @@ class TaskApiIntegrationTest {
     @Autowired
     private org.springframework.jdbc.core.simple.JdbcClient jdbc;
     @Test
-    void fullTaskLivecycle_createReadUpdateList(){
+    void fullTaskLifecycle_createReadUpdateList(){
         Map created = rest.post().uri("/api/tasks")
         .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(Map.of("title","Задача из теста","description","Описание","priority","HIGH"))
@@ -49,6 +52,11 @@ class TaskApiIntegrationTest {
 
         rest.patch().uri("/api/tasks/" + taskId + "/status")
                 .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(Map.of("status","IN_PROGRESS"))
+                .exchange()
+                .expectStatus().isOk();
+        rest.patch().uri("/api/tasks/" + taskId + "/status")
+                .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(Map.of("status","DONE"))
                 .exchange()
                 .expectStatus().isOk();
@@ -60,6 +68,36 @@ class TaskApiIntegrationTest {
 
 
 
+    }
+    @Test
+    void forbiddenStatusTransitions_return400(){
+        Map<?, ?> task = rest.post().uri("/api/tasks")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(Map.of("title", "Status rules", "description", "Check transitions", "priority", "HIGH"))
+                .exchange()
+                .expectStatus().isCreated()
+                .expectBody(Map.class)
+                .returnResult().getResponseBody();
+
+        Object taskId = task.get("id");
+        rest.patch().uri("/api/tasks/" + taskId + "/status")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(Map.of("status", "DONE"))
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.code").isEqualTo("INVALID_STATUS_TRANSITION");
+
+        rest.patch().uri("/api/tasks/" + taskId + "/status")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(Map.of("status", "CANCELLED"))
+                .exchange()
+                .expectStatus().isOk();
+        rest.patch().uri("/api/tasks/" + taskId + "/status")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(Map.of("status", "NEW"))
+                .exchange()
+                .expectStatus().isBadRequest();
     }
     @Test
     void addDuplicateTag_returns409Conflict_andDatabaseKeepsSingleRow(){
@@ -143,9 +181,14 @@ class TaskApiIntegrationTest {
                 .listOfRows();
 
         Assertions.assertNotNull(apiResponse);
-        Assertions.assertFalse(dbStats.isEmpty());
-        System.out.println("API Статистика: " + apiResponse);
-        System.out.println("DB Статистика: " + dbStats);
+        Map<String, Long> expectedStatusCounts = new HashMap<>();
+        for (Map<String, Object> row : dbStats) {
+            expectedStatusCounts.put((String) row.get("status"), ((Number) row.get("cnt")).longValue());
+        }
+        Map<String, Object> actualStatusCounts = (Map<String, Object>) apiResponse.get("mapStatus");
+        Assertions.assertEquals(expectedStatusCounts.size(), actualStatusCounts.size());
+        expectedStatusCounts.forEach((status, count) ->
+                Assertions.assertEquals(count.longValue(), ((Number) actualStatusCounts.get(status)).longValue()));
     }
 
 }

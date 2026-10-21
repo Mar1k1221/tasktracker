@@ -20,6 +20,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
 
     List<Task> findByStatus(TaskStatus status);
 
+    @EntityGraph(attributePaths = {"tags"})
     @Query("SELECT t FROM Task t WHERE (:status IS NULL OR t.status = :status) AND (:priority IS NULL OR t.priority = :priority)")
     List<Task> findByStatusAndPriorityOptional(@Param("status") TaskStatus status, @Param("priority") TaskPriority priority);
 

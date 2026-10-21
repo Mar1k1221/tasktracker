@@ -1,7 +1,15 @@
 package com.example.tasktracker.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
 public class UpdateTaskRequest {
+    @NotBlank
+    @Size(max = 100)
     private String title;
+
+    @NotBlank
+    @Size(max = 500)
     private String description;
 
     public UpdateTaskRequest(String title, String description) {

@@ -27,6 +27,20 @@ model — основные классы Task, TaskStatus и TaskPriority.
 
 Запустить класс TaskTrackerApplication.
 
+Проверка без Docker:
+
+```powershell
+.\mvnw.cmd verify
+```
+
+Отчёт покрытия JaCoCo будет создан в `target/site/jacoco/index.html`.
+
+Интеграционные тесты требуют запущенный Docker, потому что поднимают PostgreSQL 17 через Testcontainers:
+
+```powershell
+.\mvnw.cmd verify -Pintegration-tests
+```
+
 После запуска приложение работает на:
 http://localhost:8080
 

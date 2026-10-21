@@ -51,8 +51,9 @@ return taskRepository.save(task1);
         Task t1=taskRepository.findById(id)
         .orElseThrow(() -> new TaskNotFoundException("Обьект с таким id не найден."));
 
-        if (t1.getStatus() == TaskStatus.DONE && status.getStatus() != TaskStatus.DONE) {
-            throw new InvalidStatusTransitionException("Нельзя изменить статус после перехода в DONE.");
+        if (!t1.getStatus().status_transition(status.getStatus())) {
+            throw new InvalidStatusTransitionException("Недопустимый переход статуса: "
+                    + t1.getStatus() + " -> " + status.getStatus());
         }
         t1.setStatus(status.getStatus());
         taskRepository.save(t1);
