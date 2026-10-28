@@ -1,5 +1,7 @@
 package com.example.tasktracker.controller;
 
+import com.example.tasktracker.dto.LoginRequest;
+import com.example.tasktracker.dto.LoginResponse;
 import com.example.tasktracker.dto.RegisterRequest;
 import com.example.tasktracker.dto.UserResponse;
 import com.example.tasktracker.model.AppUser;
@@ -25,5 +27,10 @@ public class AuthController {
         UserResponse response = new UserResponse(user.getId(),user.getUsername(),user.getRole());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(response);
+    }
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest loginRequest){
+        LoginResponse response = authService.login(loginRequest.getUsername(),loginRequest.getPassword());
+        return ResponseEntity.ok(response);
     }
 }

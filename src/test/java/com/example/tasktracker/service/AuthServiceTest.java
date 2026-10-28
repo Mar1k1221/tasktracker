@@ -2,6 +2,7 @@ package com.example.tasktracker.service;
 
 import com.example.tasktracker.model.AppUser;
 import com.example.tasktracker.repository.UserRepository;
+import com.example.tasktracker.security.JwtService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,11 +23,13 @@ class AuthServiceTest {
     private UserRepository userRepository;
     private PasswordEncoder passwordEncoder;
     private AuthService authService;
+    @Mock
+    private JwtService jwtService;
 
     @BeforeEach
     void setUp() {
         passwordEncoder = new BCryptPasswordEncoder();
-        authService = new AuthService(userRepository, passwordEncoder);
+        authService = new AuthService(userRepository, passwordEncoder,jwtService);
     }
     @Test
     void register_hashesPasswordBeforeSavingUser(){
