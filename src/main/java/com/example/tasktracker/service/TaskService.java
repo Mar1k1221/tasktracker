@@ -10,8 +10,13 @@ import com.example.tasktracker.exception.TaskNotFoundException;
 import com.example.tasktracker.model.*;
 
 import com.example.tasktracker.repository.TaskRepository;
+import com.example.tasktracker.repository.UserRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.*;
 
@@ -19,36 +24,58 @@ import java.util.*;
 public class TaskService
 {
     private final TaskRepository taskRepository;
+    private final UserRepository userRepository;
 
-    public TaskService(TaskRepository taskRepository) {
+    public TaskService(
+            TaskRepository taskRepository,
+            UserRepository userRepository
+    ) {
         this.taskRepository = taskRepository;
+        this.userRepository = userRepository;
     }
-@Transactional
-    public Task save(CreateTaskRequest task) {
-     Task task1 = new Task(null,task.getTitle(),task.getDescription(),task.getPriority(),TaskStatus.NEW,new HashSet<>());
-return taskRepository.save(task1);
+    @Transactional
+    public Task save(CreateTaskRequest request, String username) {
+
+        AppUser owner = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED,
+                        "Пользователь не найден."
+                ));
+
+        Task task1 = new Task(
+                null,
+                request.getTitle(),
+                request.getDescription(),
+                request.getPriority(),
+                TaskStatus.NEW,
+                new HashSet<>()
+        );
+
+        task1.setOwner(owner);
+
+        return taskRepository.save(task1);
     }
     @Transactional(readOnly = true)
-    public Task findById(Long id) {
-        return taskRepository.findById(id)
+    public Task findById(Long id,String username) {
+        return taskRepository.findByIdAndOwner_Username(id,username)
                 .orElseThrow(() -> new TaskNotFoundException("Объект с таким ID не найден."));
     }
 @Transactional(readOnly = true)
-    public List<Task> findByAll(TaskStatus status,TaskPriority priority) {
-    return taskRepository.findByStatusAndPriorityOptional(status, priority);
+    public List<Task> findByAll(TaskStatus status,TaskPriority priority,String username) {
+    return taskRepository.findByOwnerAndStatusAndPriorityOptional(username,status,priority);
 
     }
 @Transactional
-    public void delete(Long id) {
-      Task task =  taskRepository.findById(id)
+    public void delete(Long id,String username) {
+      Task task =  taskRepository.findByIdAndOwner_Username(id,username)
                .orElseThrow(()->new TaskNotFoundException("Обьект с таким id не найден."));
        taskRepository.delete(task);
     }
 
 
 @Transactional
-    public Task newStatus(Long id, UpdateTaskStatusRequest status) {
-        Task t1=taskRepository.findById(id)
+    public Task newStatus(Long id, UpdateTaskStatusRequest status,String username) {
+        Task t1=taskRepository.findByIdAndOwner_Username(id,username)
         .orElseThrow(() -> new TaskNotFoundException("Обьект с таким id не найден."));
 
         if (!t1.getStatus().status_transition(status.getStatus())) {
@@ -60,8 +87,8 @@ return taskRepository.save(task1);
         return t1;
     }
     @Transactional
-    public Task newPriority(Long id, TaskPriority priority) {
-        Task task = taskRepository.findById(id)
+    public Task newPriority(Long id, TaskPriority priority,String username) {
+        Task task = taskRepository.findByIdAndOwner_Username(id,username)
                 .orElseThrow(() -> new TaskNotFoundException("Объект с таким id не найден."));
 
         if (task.getPriority() != priority) {
@@ -72,8 +99,8 @@ return taskRepository.save(task1);
         return task;
     }
 @Transactional
-    public Task addTags(Long id, String tags) {
-        Task task = taskRepository.findById(id)
+    public Task addTags(Long id, String tags,String username) {
+        Task task = taskRepository.findByIdAndOwner_Username(id,username)
                 .orElseThrow(()-> new TaskNotFoundException("Обьект с таким id не найден."));
 
         if (task.getTags().contains(tags)) {
@@ -84,9 +111,9 @@ return taskRepository.save(task1);
         return task;
     }
     @Transactional(readOnly = true)
-public TaskStatisticsResponse getStatistics(){
-     List<PriorityCount> priorityCounts = taskRepository.countTaskByPriority();
-     List<StatusCount> statusCounts = taskRepository.countTaskByStatus();
+public TaskStatisticsResponse getStatistics(String username){
+     List<PriorityCount> priorityCounts = taskRepository.countTaskByPriority(username);
+     List<StatusCount> statusCounts = taskRepository.countTaskByStatus(username);
 
      Map<TaskPriority,Integer> priorityMap = new HashMap<>();
      for (PriorityCount pr: priorityCounts){
@@ -97,13 +124,19 @@ public TaskStatisticsResponse getStatistics(){
          statusMap.put(st.getStatus(),st.getCount().intValue());
      } return new TaskStatisticsResponse(statusMap,priorityMap);
 }@Transactional
-public Task update(Long id, UpdateTaskRequest request){
-     Task t = taskRepository.findById(id)
+public Task update(Long id, UpdateTaskRequest request,String username){
+     Task t = taskRepository.findByIdAndOwner_Username(id,username)
              .orElseThrow(()->new TaskNotFoundException("Обьект с таким id не найден"));
      t.setTitle(request.getTitle());
      t.setDescription(request.getDescription());
      return taskRepository.save(t);
 
+}
+@Transactional(readOnly = true)
+@PreAuthorize("hasRole('ADMIN')")
+
+public List<Task> getAllTasksForAdmin(){
+        return taskRepository.findAll();
 }
 
 

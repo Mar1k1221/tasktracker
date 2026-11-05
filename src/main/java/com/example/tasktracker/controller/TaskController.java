@@ -10,6 +10,8 @@ import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -27,19 +29,19 @@ public class TaskController {
 
 
     @GetMapping("/statistics")
-    public TaskStatisticsResponse statisticsResponse(){
+    public TaskStatisticsResponse statisticsResponse(@AuthenticationPrincipal Jwt jwt){
 
-        return taskService.getStatistics();
+        return taskService.getStatistics(jwt.getSubject());
     }
     @GetMapping("/{id}")
-    public TaskResponse findById(@PathVariable Long id){
-        Task task = taskService.findById(id);
+    public TaskResponse findById(@PathVariable Long id,@AuthenticationPrincipal Jwt jwt){
+        Task task = taskService.findById(id,jwt.getSubject());
          return new TaskResponse(task.getId(),task.getTitle(),task.getDescription(),task.getPriority(),task.getStatus(),task.getTags());
     }
     @GetMapping
     public List<TaskResponse> findByAll(@RequestParam ( required = false)TaskStatus status,@RequestParam(required = false)
-    TaskPriority priority) {
-        List<Task> list = taskService.findByAll(status,priority);
+    TaskPriority priority,@AuthenticationPrincipal Jwt jwt) {
+        List<Task> list = taskService.findByAll(status,priority,jwt.getSubject());
         List<TaskResponse> list2 = new ArrayList<>();
         for (Task t:list){
             TaskResponse taskResponse = new TaskResponse(t.getId(),t.getTitle(),t.getDescription(),t.getPriority(),t.getStatus(),t.getTags());
@@ -48,8 +50,8 @@ public class TaskController {
         return list2;
     }
     @PostMapping
-    public ResponseEntity<TaskResponse> save(@RequestBody @Valid CreateTaskRequest createTaskRequest){
-        Task task = taskService.save(createTaskRequest);
+    public ResponseEntity<TaskResponse> save(@RequestBody @Valid CreateTaskRequest createTaskRequest,@AuthenticationPrincipal Jwt jwt){
+        Task task = taskService.save(createTaskRequest, jwt.getSubject());
         TaskResponse taskResponse = new TaskResponse(task.getId(),task.getTitle(),task.getDescription(),task.getPriority(),task.getStatus(),task.getTags());
       java.net.URI location = java.net.URI.create("/api/tasks/" + task.getId());
         return ResponseEntity.created(location).body(taskResponse);
@@ -57,8 +59,8 @@ public class TaskController {
 
 
     @PatchMapping("/{id}/status")
-    public TaskResponse newStatus(@PathVariable Long id ,@Valid  @RequestBody  UpdateTaskStatusRequest request){
-Task task = taskService.newStatus(id,request);
+    public TaskResponse newStatus(@PathVariable Long id ,@Valid  @RequestBody  UpdateTaskStatusRequest request,@AuthenticationPrincipal Jwt jwt){
+Task task = taskService.newStatus(id,request,jwt.getSubject());
 return new TaskResponse(task.getId(),
         task.getTitle(),
         task.getDescription(),
@@ -67,25 +69,25 @@ return new TaskResponse(task.getId(),
         task.getTags());
     }
     @PatchMapping("/{id}/priority")
-    public TaskResponse changePriority(@PathVariable Long id, @Valid  @RequestBody UpdateTaskPriorityRequest priority){
-        Task task = taskService.newPriority(id, priority.getPriority());
+    public TaskResponse changePriority(@PathVariable Long id, @Valid  @RequestBody UpdateTaskPriorityRequest priority,@AuthenticationPrincipal Jwt jwt){
+        Task task = taskService.newPriority(id, priority.getPriority(),jwt.getSubject());
         return new TaskResponse(task.getId(),task.getTitle(),task.getDescription(),task.getPriority(),task.getStatus(),task.getTags());
     }
     @PostMapping("/{id}/tags")
     @ResponseStatus(HttpStatus.CREATED)
-    public TaskResponse addTags(@PathVariable Long id, @RequestBody @Valid AddTagRequest tag){
-        Task task = taskService.addTags(id, tag.getTag());
+    public TaskResponse addTags(@PathVariable Long id, @RequestBody @Valid AddTagRequest tag,@AuthenticationPrincipal Jwt jwt){
+        Task task = taskService.addTags(id, tag.getTag(),jwt.getSubject());
         return new TaskResponse(task.getId(),task.getTitle(),task.getDescription(),task.getPriority(),task.getStatus(),task.getTags());
 
     }
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id){
-         taskService.delete(id);
+    public ResponseEntity<Void> delete(@PathVariable Long id,@AuthenticationPrincipal Jwt jwt){
+         taskService.delete(id,jwt.getSubject());
          return ResponseEntity.status(204).build();
     }
     @PutMapping("/{id}/update")
-    public TaskResponse update(@PathVariable Long id,@RequestBody @Valid UpdateTaskRequest request){
-        Task task1 = taskService.update(id,request);
+    public TaskResponse update(@PathVariable Long id,@RequestBody @Valid UpdateTaskRequest request,@AuthenticationPrincipal Jwt jwt){
+        Task task1 = taskService.update(id,request,jwt.getSubject());
         TaskResponse taskResponse1 = new TaskResponse(task1.getId(),task1.getTitle(),task1.getDescription(),task1.getPriority(),task1.getStatus(),task1.getTags());
         return taskResponse1;
 

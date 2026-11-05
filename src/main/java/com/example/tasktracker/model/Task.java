@@ -25,6 +25,9 @@ public class Task {
     @CollectionTable(name="task_tags",joinColumns = @JoinColumn(name="task_id"))
     @Column(name = "tag")
     private   Set<String> tags;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_id",nullable=false)
+    private AppUser owner;
 
     public Task(Long id, String title, String description, TaskPriority priority, TaskStatus status, Set<String> tags) {
         this.id = id;
@@ -33,9 +36,18 @@ public class Task {
         this.priority = priority;
         this.status = status;
         this.tags = new HashSet<>(tags);
+
     }
     public Task(){
 
+    }
+
+    public AppUser getOwner() {
+        return owner;
+    }
+
+    public void setOwner(AppUser owner) {
+        this.owner = owner;
     }
 
     public Set<String> getTags() {

@@ -1,5 +1,7 @@
+
 package com.example.tasktracker.repository;
 
+import com.example.tasktracker.model.AppUser;
 import com.example.tasktracker.model.Task;
 import com.example.tasktracker.model.TaskPriority;
 import com.example.tasktracker.model.TaskStatus;
@@ -14,8 +16,6 @@ import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabas
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -37,9 +37,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Tag("integration")
 class TaskRepositoryTest {
 
+    private static final String OWNER_USERNAME = "repository_test_user";
+
     @Container
     @ServiceConnection
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:17");
+    static PostgreSQLContainer<?> postgres =
+            new PostgreSQLContainer<>("postgres:17");
 
     @Autowired
     private TaskRepository taskRepository;
@@ -50,18 +53,47 @@ class TaskRepositoryTest {
     @Autowired
     private EntityManager entityManager;
 
+    private AppUser createOwner(String username) {
+        AppUser owner = new AppUser(username, "hashed-password", "USER");
+        return testEntityManager.persist(owner);
+    }
+
+    private Task createTask(
+            AppUser owner,
+            String title,
+            TaskPriority priority,
+            TaskStatus status
+    ) {
+        Task task = new Task(
+                null,
+                title,
+                "desc",
+                priority,
+                status,
+                new HashSet<>()
+        );
+
+        task.setOwner(owner);
+
+        return testEntityManager.persist(task);
+    }
+
     @Test
     @DisplayName("1. Поиск по статусу возвращает только задачи с этим статусом")
     void findByStatus_returnsOnlyMatchingTasks() {
-        testEntityManager.persist(new Task(null, "Task A", "desc", TaskPriority.HIGH, TaskStatus.IN_PROGRESS, Set.of()));
-        testEntityManager.persist(new Task(null, "Task B", "desc", TaskPriority.LOW, TaskStatus.DONE, Set.of()));
-        testEntityManager.persist(new Task(null, "Task C", "desc", TaskPriority.MEDIUM, TaskStatus.IN_PROGRESS, Set.of()));
+
+        AppUser owner = createOwner(OWNER_USERNAME);
+
+        createTask(owner, "Task A", TaskPriority.HIGH, TaskStatus.IN_PROGRESS);
+        createTask(owner, "Task B", TaskPriority.LOW, TaskStatus.DONE);
+        createTask(owner, "Task C", TaskPriority.MEDIUM, TaskStatus.IN_PROGRESS);
+
         testEntityManager.flush();
         testEntityManager.clear();
 
-        List<Task> inProgressTasks = taskRepository.findByStatus(TaskStatus.IN_PROGRESS);
+        List<Task> tasks = taskRepository.findByStatus(TaskStatus.IN_PROGRESS);
 
-        assertThat(inProgressTasks)
+        assertThat(tasks)
                 .hasSize(2)
                 .allMatch(task -> task.getStatus() == TaskStatus.IN_PROGRESS)
                 .extracting(Task::getTitle)
@@ -69,41 +101,57 @@ class TaskRepositoryTest {
     }
 
     @Test
-    @DisplayName("2. Поиск по части названия не зависит от регистра и корректно работает с кириллицей")
+    @DisplayName("2. Поиск по части названия не зависит от регистра и работает с кириллицей")
     void findByTitleContainingIgnoreCase_handlesCyrillicAndCase() {
-        testEntityManager.persist(new Task(null, "Переписать отчет", "desc", TaskPriority.HIGH, TaskStatus.IN_PROGRESS, Set.of()));
-        testEntityManager.persist(new Task(null, "Сдать ОТЧЕТ директору", "desc", TaskPriority.LOW, TaskStatus.IN_PROGRESS, Set.of()));
-        testEntityManager.persist(new Task(null, "Починить кофемашину", "desc", TaskPriority.LOW, TaskStatus.IN_PROGRESS, Set.of()));
+
+        AppUser owner = createOwner(OWNER_USERNAME);
+
+        createTask(owner, "Переписать отчет", TaskPriority.HIGH, TaskStatus.IN_PROGRESS);
+        createTask(owner, "Сдать ОТЧЕТ директору", TaskPriority.LOW, TaskStatus.IN_PROGRESS);
+        createTask(owner, "Починить кофемашину", TaskPriority.LOW, TaskStatus.IN_PROGRESS);
+
         testEntityManager.flush();
         testEntityManager.clear();
 
-        var result = taskRepository.findByTitleContainingIgnoreCase("оТчЕт", PageRequest.of(0, 10));
+        var result = taskRepository.findByTitleContainingIgnoreCase(
+                "оТчЕт",
+                org.springframework.data.domain.PageRequest.of(0, 10)
+        );
 
         assertThat(result.getTotalElements()).isEqualTo(2);
+
         assertThat(result.getContent())
                 .extracting(Task::getTitle)
-                .containsExactlyInAnyOrder("Переписать отчет", "Сдать ОТЧЕТ директору");
+                .containsExactlyInAnyOrder(
+                        "Переписать отчет",
+                        "Сдать ОТЧЕТ директору"
+                );
     }
 
     @Test
-    @DisplayName("3. Агрегирующий запрос статистики возвращает те же числа, что ручной SQL GROUP BY")
+    @DisplayName("3. Статистика по статусам совпадает с ручным SQL GROUP BY")
     void countTasksByStatusGrouped_matchesManualGroupBy() {
-        testEntityManager.persist(new Task(null, "Task 1", "d", TaskPriority.LOW, TaskStatus.IN_PROGRESS, Set.of()));
-        testEntityManager.persist(new Task(null, "Task 2", "d", TaskPriority.LOW, TaskStatus.IN_PROGRESS, Set.of()));
-        testEntityManager.persist(new Task(null, "Task 3", "d", TaskPriority.LOW, TaskStatus.DONE, Set.of()));
+
+        AppUser owner = createOwner(OWNER_USERNAME);
+
+        createTask(owner, "Task 1", TaskPriority.LOW, TaskStatus.IN_PROGRESS);
+        createTask(owner, "Task 2", TaskPriority.LOW, TaskStatus.IN_PROGRESS);
+        createTask(owner, "Task 3", TaskPriority.LOW, TaskStatus.DONE);
+
         testEntityManager.flush();
         testEntityManager.clear();
 
-
-        var repoStats = taskRepository.countTasksByStatusGrouped().stream()
+        var repoStats = taskRepository.countTasksByStatusGrouped()
+                .stream()
                 .collect(Collectors.toMap(
-                        proj -> proj.getStatus().name(),
+                        projection -> projection.getStatus().name(),
                         TaskRepository.TaskStatusCountProjection::getCount
                 ));
 
-
         @SuppressWarnings("unchecked")
-        List<Object[]> rawStats = entityManager.createNativeQuery("SELECT status, count(*) FROM tasks GROUP BY status")
+        List<Object[]> rawStats = entityManager.createNativeQuery(
+                        "SELECT status, count(*) FROM tasks GROUP BY status"
+                )
                 .getResultList();
 
         Map<String, Long> manualSqlStats = rawStats.stream()
@@ -118,53 +166,86 @@ class TaskRepositoryTest {
     }
 
     @Test
-    @DisplayName("4. Удаление задачи удаляет ее теги в таблице task_tags")
+    @DisplayName("4. Удаление задачи удаляет её теги")
     void deleteTask_cascadesDeletionToTaskTagsTable() {
-        Task task = new Task(null, "Удаляемая задача", "desc", TaskPriority.HIGH, TaskStatus.IN_PROGRESS, new HashSet<>());
+
+        AppUser owner = createOwner(OWNER_USERNAME);
+
+        Task task = new Task(
+                null,
+                "Удаляемая задача",
+                "desc",
+                TaskPriority.HIGH,
+                TaskStatus.IN_PROGRESS,
+                new HashSet<>()
+        );
+
+        task.setOwner(owner);
         task.getTags().add("backend");
         task.getTags().add("urgent");
+
         Task saved = testEntityManager.persistAndFlush(task);
         Long taskId = saved.getId();
+
         testEntityManager.clear();
 
-
-        Number tagsBefore = (Number) entityManager.createNativeQuery("SELECT count(*) FROM task_tags WHERE task_id = :taskId")
+        Number tagsBefore = (Number) entityManager.createNativeQuery(
+                        "SELECT count(*) FROM task_tags WHERE task_id = :taskId"
+                )
                 .setParameter("taskId", taskId)
                 .getSingleResult();
+
         assertThat(tagsBefore.intValue()).isEqualTo(2);
 
-
         taskRepository.deleteById(taskId);
+
         testEntityManager.flush();
         testEntityManager.clear();
 
-
-        Number tagsAfter = (Number) entityManager.createNativeQuery("SELECT count(*) FROM task_tags WHERE task_id = :taskId")
+        Number tagsAfter = (Number) entityManager.createNativeQuery(
+                        "SELECT count(*) FROM task_tags WHERE task_id = :taskId"
+                )
                 .setParameter("taskId", taskId)
                 .getSingleResult();
+
         assertThat(tagsAfter.intValue()).isZero();
     }
 
     @Test
-    @DisplayName("5. Повторная пара «задача - тег» нарушает ограничение UNIQUE")
+    @DisplayName("5. Повторная пара задача-тег нарушает ограничение UNIQUE")
     void duplicateTaskTagPair_throwsDataIntegrityViolationException() {
-        Task task = testEntityManager.persistAndFlush(
-                new Task(null, "Задача под дубликат", "desc", TaskPriority.LOW, TaskStatus.IN_PROGRESS, new HashSet<>())
+
+        AppUser owner = createOwner(OWNER_USERNAME);
+
+        Task task = new Task(
+                null,
+                "Задача под дубликат",
+                "desc",
+                TaskPriority.LOW,
+                TaskStatus.IN_PROGRESS,
+                new HashSet<>()
         );
-        Long taskId = task.getId();
 
+        task.setOwner(owner);
 
-        entityManager.createNativeQuery("INSERT INTO task_tags (task_id, tag) VALUES (:taskId, :tag)")
+        Task saved = testEntityManager.persistAndFlush(task);
+        Long taskId = saved.getId();
+
+        entityManager.createNativeQuery(
+                        "INSERT INTO task_tags (task_id, tag) VALUES (:taskId, :tag)"
+                )
                 .setParameter("taskId", taskId)
                 .setParameter("tag", "java")
                 .executeUpdate();
 
-
         assertThatThrownBy(() -> {
-            entityManager.createNativeQuery("INSERT INTO task_tags (task_id, tag) VALUES (:taskId, :tag)")
+            entityManager.createNativeQuery(
+                            "INSERT INTO task_tags (task_id, tag) VALUES (:taskId, :tag)"
+                    )
                     .setParameter("taskId", taskId)
                     .setParameter("tag", "java")
                     .executeUpdate();
+
             entityManager.flush();
         })
                 .hasRootCauseInstanceOf(org.postgresql.util.PSQLException.class)
@@ -172,25 +253,71 @@ class TaskRepositoryTest {
     }
 
     @Test
-    @DisplayName("6. Список задач с тегами укладывается не больше чем в два запроса (@EntityGraph)")
-    void findByStatusAndPriorityOptional_withTags_doesNotProduceQueryPerTask() {
+    @DisplayName("6. Поиск задач владельца с тегами использует EntityGraph")
+    void findByOwnerAndStatusAndPriorityOptional_withTags_doesNotProduceQueryPerTask() {
+
+        AppUser owner = createOwner(OWNER_USERNAME);
+
         for (int i = 0; i < 3; i++) {
-            Task task = new Task(null, "Задача " + i, "desc", TaskPriority.LOW, TaskStatus.IN_PROGRESS, new HashSet<>());
+            Task task = new Task(
+                    null,
+                    "Задача " + i,
+                    "desc",
+                    TaskPriority.LOW,
+                    TaskStatus.IN_PROGRESS,
+                    new HashSet<>()
+            );
+
+            task.setOwner(owner);
             task.getTags().add("tag" + i);
             task.getTags().add("general");
+
             testEntityManager.persist(task);
         }
+
         testEntityManager.flush();
         testEntityManager.clear();
 
         Statistics statistics = entityManager.unwrap(Session.class)
                 .getSessionFactory()
                 .getStatistics();
+
         statistics.clear();
 
-        taskRepository.findByStatusAndPriorityOptional(null, null)
+        taskRepository.findByOwnerAndStatusAndPriorityOptional(
+                        OWNER_USERNAME,
+                        null,
+                        null
+                )
                 .forEach(task -> assertThat(task.getTags()).isNotEmpty());
 
-        assertThat(statistics.getPrepareStatementCount()).isLessThanOrEqualTo(2L);
+        assertThat(statistics.getPrepareStatementCount())
+                .isLessThanOrEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("7. Поиск задач возвращает только задачи указанного владельца")
+    void findByOwnerAndStatusAndPriorityOptional_returnsOnlyOwnerTasks() {
+
+        AppUser marat = createOwner("marat");
+        AppUser alex = createOwner("alex");
+
+        createTask(marat, "Задача Марата", TaskPriority.HIGH, TaskStatus.NEW);
+        createTask(alex, "Задача Алекса", TaskPriority.HIGH, TaskStatus.NEW);
+
+        testEntityManager.flush();
+        testEntityManager.clear();
+
+        List<Task> result = taskRepository.findByOwnerAndStatusAndPriorityOptional(
+                "marat",
+                null,
+                null
+        );
+
+        assertThat(result)
+                .hasSize(1)
+                .allMatch(task -> task.getOwner().getUsername().equals("marat"))
+                .extracting(Task::getTitle)
+                .containsExactly("Задача Марата");
     }
 }

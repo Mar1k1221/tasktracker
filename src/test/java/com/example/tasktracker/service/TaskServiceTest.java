@@ -1,15 +1,18 @@
+
 package com.example.tasktracker.service;
 
 import com.example.tasktracker.dto.CreateTaskRequest;
-import com.example.tasktracker.dto.UpdateTaskRequest;
 import com.example.tasktracker.dto.UpdateTaskStatusRequest;
 import com.example.tasktracker.exception.ConflictException;
 import com.example.tasktracker.exception.InvalidStatusTransitionException;
 import com.example.tasktracker.exception.TaskNotFoundException;
+import com.example.tasktracker.model.AppUser;
 import com.example.tasktracker.model.Task;
 import com.example.tasktracker.model.TaskPriority;
 import com.example.tasktracker.model.TaskStatus;
 import com.example.tasktracker.repository.TaskRepository;
+import com.example.tasktracker.repository.UserRepository;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,100 +34,210 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class TaskServiceTest {
+
+    private static final String USERNAME = "marat_test_01";
+
     @Mock
     private TaskRepository taskRepository;
+
+    @Mock
+    private UserRepository userRepository;
+
     @InjectMocks
     private TaskService taskService;
 
     @Test
-    @DisplayName("Проверка что при создании обьекта добавляется статус - NEW")
-    public void createTest_always_savesTaskWithStatusNew() {
-        CreateTaskRequest createTaskRequest = new CreateTaskRequest("Новая задача", "Новое описание", TaskPriority.LOW);
-        taskService.save(createTaskRequest);
-        ArgumentCaptor<Task> taskcaptor = ArgumentCaptor.forClass(Task.class);
-        verify(taskRepository).save(taskcaptor.capture());
-        Task savedTask = taskcaptor.getValue();
+    @DisplayName("Создание задачи: статус NEW и назначение владельца")
+    void createTest_always_savesTaskWithStatusNew() {
+
+        CreateTaskRequest request = new CreateTaskRequest(
+                "Новая задача",
+                "Новое описание",
+                TaskPriority.LOW
+        );
+
+        AppUser owner = new AppUser(
+                USERNAME,
+                "hashed-password",
+                "USER"
+        );
+
+        when(userRepository.findByUsername(USERNAME))
+                .thenReturn(Optional.of(owner));
+
+        when(taskRepository.save(any(Task.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        taskService.save(request, USERNAME);
+
+        ArgumentCaptor<Task> captor =
+                ArgumentCaptor.forClass(Task.class);
+
+        verify(taskRepository).save(captor.capture());
+
+        Task savedTask = captor.getValue();
+
         assertEquals(TaskStatus.NEW, savedTask.getStatus());
+        assertThat(savedTask.getOwner()).isSameAs(owner);
     }
 
     @Test
-    @DisplayName("Проверка: запрещенный переход статуса из DONE выбрасывает ошибку и не сохраняет данные")
-    public void changeStatus_forbiddenTransition_throwsExceptionAndDoesNotSave() {
-        Task task = new Task(1L, "Новая тест задача", "TEST", TaskPriority.HIGH, TaskStatus.DONE, new HashSet<>());
-        UpdateTaskStatusRequest updateTaskStatusRequest = new UpdateTaskStatusRequest(TaskStatus.NEW);
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
-        assertThrows(InvalidStatusTransitionException.class, () -> taskService.newStatus(1L, updateTaskStatusRequest));
-        verify(taskRepository, never()).save(any());
-    }
-    @Test
-    public void changeStatus_newToDone_throwsExceptionAndDoesNotSave() {
-        Task task = new Task(1L, "Task", "TEST", TaskPriority.HIGH, TaskStatus.NEW, new HashSet<>());
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+    @DisplayName("Запрещённый переход из DONE")
+    void changeStatus_forbiddenTransition_throwsExceptionAndDoesNotSave() {
 
-        assertThrows(InvalidStatusTransitionException.class,
-                () -> taskService.newStatus(1L, new UpdateTaskStatusRequest(TaskStatus.DONE)));
+        Task task = new Task(
+                1L, "Новая тест задача", "TEST",
+                TaskPriority.HIGH, TaskStatus.DONE, new HashSet<>()
+        );
 
-        verify(taskRepository, never()).save(any());
-    }
-    @Test
-    public void changeStatus_cancelledToNew_throwsExceptionAndDoesNotSave() {
-        Task task = new Task(1L, "Task", "TEST", TaskPriority.HIGH, TaskStatus.CANCELLED, new HashSet<>());
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        UpdateTaskStatusRequest request =
+                new UpdateTaskStatusRequest(TaskStatus.NEW);
 
-        assertThrows(InvalidStatusTransitionException.class,
-                () -> taskService.newStatus(1L, new UpdateTaskStatusRequest(TaskStatus.NEW)));
+        when(taskRepository.findByIdAndOwner_Username(1L, USERNAME))
+                .thenReturn(Optional.of(task));
+
+        assertThrows(
+                InvalidStatusTransitionException.class,
+                () -> taskService.newStatus(1L, request, USERNAME)
+        );
 
         verify(taskRepository, never()).save(any());
     }
-    @ParameterizedTest(name = "{0} -> проверка обьекта с несуществующим id.")
-    @ValueSource(longs = {400l, 300l, 500l})
-    public void test_for_locating_againstNonexistentOne_ThrowsException(Long id) {
-        when(taskRepository.findById(id)).thenReturn(Optional.empty());
-        assertThrows(TaskNotFoundException.class, () -> taskService.findById(id));
 
+    @Test
+    void changeStatus_newToDone_throwsExceptionAndDoesNotSave() {
+
+        Task task = new Task(
+                1L, "Task", "TEST",
+                TaskPriority.HIGH, TaskStatus.NEW, new HashSet<>()
+        );
+
+        when(taskRepository.findByIdAndOwner_Username(1L, USERNAME))
+                .thenReturn(Optional.of(task));
+
+        assertThrows(
+                InvalidStatusTransitionException.class,
+                () -> taskService.newStatus(
+                        1L,
+                        new UpdateTaskStatusRequest(TaskStatus.DONE),
+                        USERNAME
+                )
+        );
+
+        verify(taskRepository, never()).save(any());
     }
 
     @Test
-    @DisplayName("Проверка на смену приоритета у обьекта по id")
-    public void test_newPriority_Positive() {
-        Task task = new Task(1l, "psdp", "psdfpds", TaskPriority.LOW, null, new HashSet<>());
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
-        Task result = taskService.newPriority(1L, TaskPriority.MEDIUM);
-        assertThat(result.getPriority()).isEqualTo(TaskPriority.MEDIUM);
-        verify(taskRepository, times(1)).save(result);
+    void changeStatus_cancelledToNew_throwsExceptionAndDoesNotSave() {
 
+        Task task = new Task(
+                1L, "Task", "TEST",
+                TaskPriority.HIGH, TaskStatus.CANCELLED, new HashSet<>()
+        );
 
+        when(taskRepository.findByIdAndOwner_Username(1L, USERNAME))
+                .thenReturn(Optional.of(task));
+
+        assertThrows(
+                InvalidStatusTransitionException.class,
+                () -> taskService.newStatus(
+                        1L,
+                        new UpdateTaskStatusRequest(TaskStatus.NEW),
+                        USERNAME
+                )
+        );
+
+        verify(taskRepository, never()).save(any());
     }
-    @ParameterizedTest(name = "Проверка на добавление тега у несуществующей задачи с id {0} .")
-    @ValueSource(longs = {300L,200L,15L})
-    public void exceptionWhenAddTag_toExistent_Task(Long id){
-        when(taskRepository.findById(id)).thenReturn(Optional.empty());
-        assertThrows(TaskNotFoundException.class,()-> taskService.addTags(id, "TTT"));
-        verify(taskRepository,never()).save(any());
 
+    @ParameterizedTest(name = "{0} — задача не найдена")
+    @ValueSource(longs = {400L, 300L, 500L})
+    void test_for_locating_againstNonexistentOne_ThrowsException(Long id) {
 
+        when(taskRepository.findByIdAndOwner_Username(id, USERNAME))
+                .thenReturn(Optional.empty());
 
-
+        assertThrows(
+                TaskNotFoundException.class,
+                () -> taskService.findById(id, USERNAME)
+        );
     }
+
     @Test
-    @DisplayName("Тест на исключение конфликта, состояние задачи не изменилось.")
-    public void conflictAvoidedTaskStateUnchanged(){
-        Set<String>tags = new HashSet<>(Set.of("ttt"));
-        Task task = new Task(1L,"sdd","sdaasd",TaskPriority.MEDIUM,TaskStatus.NEW,tags);
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
-        assertThrows(ConflictException.class,() -> taskService.addTags(1L,"ttt"));
-        verify(taskRepository,never()).save(any());
+    @DisplayName("Изменение приоритета собственной задачи")
+    void test_newPriority_Positive() {
 
+        Task task = new Task(
+                1L, "psdp", "psdfpds",
+                TaskPriority.LOW, TaskStatus.NEW, new HashSet<>()
+        );
+
+        when(taskRepository.findByIdAndOwner_Username(1L, USERNAME))
+                .thenReturn(Optional.of(task));
+
+        Task result = taskService.newPriority(
+                1L,
+                TaskPriority.MEDIUM,
+                USERNAME
+        );
+
+        assertThat(result.getPriority())
+                .isEqualTo(TaskPriority.MEDIUM);
+
+        verify(taskRepository).save(task);
     }
+
+    @ParameterizedTest(name = "Добавление тега в задачу {0}")
+    @ValueSource(longs = {300L, 200L, 15L})
+    void exceptionWhenAddTag_toExistent_Task(Long id) {
+
+        when(taskRepository.findByIdAndOwner_Username(id, USERNAME))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                TaskNotFoundException.class,
+                () -> taskService.addTags(id, "TTT", USERNAME)
+        );
+
+        verify(taskRepository, never()).save(any());
+    }
+
     @Test
-    @DisplayName("Удаление по id")
-    public void test_deleteObject_positive(){
-        Task task = new Task(1L,"sdadsa","asdas",TaskPriority.MEDIUM,TaskStatus.NEW,new HashSet<>());
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
-        taskService.delete(1L);
-        verify(taskRepository,times(1)).delete(task);
+    @DisplayName("Повторный тег вызывает ConflictException")
+    void conflictAvoidedTaskStateUnchanged() {
 
+        Set<String> tags = new HashSet<>(Set.of("ttt"));
+
+        Task task = new Task(
+                1L, "sdd", "sdaasd",
+                TaskPriority.MEDIUM, TaskStatus.NEW, tags
+        );
+
+        when(taskRepository.findByIdAndOwner_Username(1L, USERNAME))
+                .thenReturn(Optional.of(task));
+
+        assertThrows(
+                ConflictException.class,
+                () -> taskService.addTags(1L, "ttt", USERNAME)
+        );
+
+        verify(taskRepository, never()).save(any());
     }
 
+    @Test
+    @DisplayName("Удаление собственной задачи")
+    void test_deleteObject_positive() {
 
+        Task task = new Task(
+                1L, "sdadsa", "asdas",
+                TaskPriority.MEDIUM, TaskStatus.NEW, new HashSet<>()
+        );
+
+        when(taskRepository.findByIdAndOwner_Username(1L, USERNAME))
+                .thenReturn(Optional.of(task));
+
+        taskService.delete(1L, USERNAME);
+
+        verify(taskRepository).delete(task);
+    }
 }
