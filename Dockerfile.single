@@ -1,0 +1,25 @@
+FROM eclipse-temurin:21-jdk
+
+WORKDIR /workspace
+
+COPY .mvn/ .mvn/
+COPY mvnw pom.xml ./
+
+RUN sed -i 's/\r$//' mvnw && chmod +x mvnw \
+    && ./mvnw -B -q dependency:go-offline
+
+COPY src/ src/
+
+RUN ./mvnw -B -q package -DskipTests \
+    && mkdir -p /app \
+    && cp target/*.jar /app/app.jar
+
+RUN useradd --uid 10001 --no-create-home app
+
+WORKDIR /app
+
+USER app
+
+EXPOSE 8080
+
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "app.jar"]
