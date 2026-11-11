@@ -5,6 +5,7 @@ import com.example.tasktracker.exception.ConflictException;
 import com.example.tasktracker.model.AppUser;
 import com.example.tasktracker.repository.UserRepository;
 
+import com.example.tasktracker.security.JwtProperties;
 import com.example.tasktracker.security.JwtService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -19,10 +20,12 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder,JwtService jwtService){
+    private final JwtProperties jwtProperties;
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder,JwtService jwtService,JwtProperties jwtProperties){
         this.userRepository=userRepository;
         this.passwordEncoder=passwordEncoder;
         this.jwtService=jwtService;
+        this.jwtProperties=jwtProperties;
     }
     public AppUser register(String username, String rawPassword){
         if (userRepository.findByUsername(username).isPresent()){
@@ -42,7 +45,7 @@ public class AuthService {
         }
         String token = jwtService.issue(user.getUsername(), List.of(user.getRole()));
 
-        return new LoginResponse(token,900L);
+        return new LoginResponse(token,jwtProperties.lifetime().toSeconds());
     }
 
 

@@ -2,6 +2,7 @@ package com.example.tasktracker.service;
 
 import com.example.tasktracker.model.AppUser;
 import com.example.tasktracker.repository.UserRepository;
+import com.example.tasktracker.security.JwtProperties;
 import com.example.tasktracker.security.JwtService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -11,6 +12,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.Duration;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -29,7 +31,18 @@ class AuthServiceTest {
     @BeforeEach
     void setUp() {
         passwordEncoder = new BCryptPasswordEncoder();
-        authService = new AuthService(userRepository, passwordEncoder,jwtService);
+
+        JwtProperties jwtProperties = new JwtProperties(
+                "test-secret-at-least-32-characters-long",
+                Duration.ofMinutes(15)
+        );
+
+        authService = new AuthService(
+                userRepository,
+                passwordEncoder,
+                jwtService,
+                jwtProperties
+        );
     }
     @Test
     void register_hashesPasswordBeforeSavingUser(){

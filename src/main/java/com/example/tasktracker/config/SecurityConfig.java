@@ -1,7 +1,9 @@
 package com.example.tasktracker.config;
 
-import org.springframework.beans.factory.annotation.Value;
+import com.example.tasktracker.security.JwtProperties;
 
+
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -30,6 +32,7 @@ import java.util.List;
 
 @Configuration
 @EnableMethodSecurity
+@EnableConfigurationProperties(JwtProperties.class)
 public class SecurityConfig {
 
     @Bean
@@ -57,8 +60,8 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
     @Bean
-    public JwtDecoder jwtDecoder(@Value("${security.jwt.secret}") String secret){
-        SecretKeySpec key = new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8),"HmacSHA256");
+    public JwtDecoder jwtDecoder(JwtProperties properties){
+        SecretKeySpec key = new SecretKeySpec(properties.secret().getBytes(StandardCharsets.UTF_8),"HmacSHA256");
         return NimbusJwtDecoder.withSecretKey(key)
                 .macAlgorithm(MacAlgorithm.HS256)
                 .build();

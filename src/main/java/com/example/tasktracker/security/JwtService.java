@@ -1,7 +1,7 @@
 package com.example.tasktracker.security;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
-import org.springframework.beans.factory.annotation.Value;
+
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
+
 import java.time.Instant;
 import java.util.List;
 
@@ -19,9 +19,13 @@ import java.util.List;
 @Service
 public class JwtService {
     private final JwtEncoder encoder;
+    private final JwtProperties jwtProperties;
 
-    public JwtService(@Value("${security.jwt.secret}") String secret){
-        SecretKeySpec key = new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8),"HmacSHA256");
+
+
+    public JwtService(JwtProperties jwtProperties){
+        this.jwtProperties=jwtProperties;
+        SecretKeySpec key = new SecretKeySpec(jwtProperties.secret().getBytes(StandardCharsets.UTF_8),"HmacSHA256");
         this.encoder=new NimbusJwtEncoder(new ImmutableSecret<>(key));
     }
     public String issue(String username, List<String> roles){
@@ -29,7 +33,7 @@ public class JwtService {
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .issuer("task-tracker")
                 .issuedAt(now)
-                .expiresAt(now.plus(Duration.ofMinutes(15)))
+                .expiresAt(now.plus(jwtProperties.lifetime()))
                 .subject(username)
                 .claim("roles",roles)
                 .build();
