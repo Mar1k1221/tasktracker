@@ -40,3 +40,7 @@ build/
 .idea/
 *.iml
 target/
+# Environment variables and local secrets
+.env
+.env.*
+!.env.example
