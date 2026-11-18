@@ -1,4 +1,3 @@
-
 package com.example.tasktracker;
 
 import org.junit.jupiter.api.Assertions;
@@ -27,7 +26,12 @@ import java.util.UUID;
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
-                "security.jwt.secret=0123456789abcdef0123456789abcdef"
+                "security.jwt.secret=0123456789abcdef0123456789abcdef",
+                "management.endpoints.web.exposure.include=health,info,metrics",
+                "management.endpoint.health.probes.enabled=true",
+                "management.endpoint.health.group.readiness.include=readinessState,db",
+                "management.endpoint.health.show-details=when-authorized",
+                "management.endpoint.health.roles=ADMIN"
         }
 )
 @Testcontainers
@@ -55,7 +59,6 @@ class TaskApiIntegrationTest {
 
     private String username;
 
-    // Каждый тест получает отдельного пользователя и настоящий JWT.
     @BeforeEach
     void configureAuthenticatedClient() {
 
@@ -68,10 +71,6 @@ class TaskApiIntegrationTest {
 
         rest = authenticatedClient(token);
     }
-
-    // ---------------------------------------------------------
-    // ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ
-    // ---------------------------------------------------------
 
     private Map<?, ?> registerUser(String username, String password) {
 
@@ -89,8 +88,6 @@ class TaskApiIntegrationTest {
                 .getResponseBody();
 
         Assertions.assertNotNull(response);
-
-        // Пароль и хеш не должны возвращаться клиенту.
         Assertions.assertFalse(response.containsKey("password"));
         Assertions.assertFalse(response.containsKey("passwordHash"));
         Assertions.assertFalse(response.containsKey("password_hash"));
@@ -114,7 +111,6 @@ class TaskApiIntegrationTest {
                 .getResponseBody();
 
         Assertions.assertNotNull(response);
-
         Assertions.assertNotNull(response.get("token"));
         Assertions.assertNotNull(response.get("expiresIn"));
 
@@ -172,10 +168,6 @@ class TaskApiIntegrationTest {
                 .single();
     }
 
-    // ---------------------------------------------------------
-    // 1. ПОЛНЫЙ ЖИЗНЕННЫЙ ЦИКЛ ЗАДАЧИ
-    // ---------------------------------------------------------
-
     @Test
     void fullTaskLifecycle_createReadUpdateList() {
 
@@ -232,10 +224,6 @@ class TaskApiIntegrationTest {
                 .isEqualTo("DONE");
     }
 
-    // ---------------------------------------------------------
-    // 2. НЕДОПУСТИМЫЕ ПЕРЕХОДЫ СТАТУСОВ
-    // ---------------------------------------------------------
-
     @Test
     void forbiddenStatusTransitions_return400() {
 
@@ -266,10 +254,6 @@ class TaskApiIntegrationTest {
                 .expectStatus().isBadRequest();
     }
 
-    // ---------------------------------------------------------
-    // 3. ДУБЛИРУЮЩИЕСЯ ТЕГИ
-    // ---------------------------------------------------------
-
     @Test
     void addDuplicateTag_returns409_andDatabaseKeepsSingleRow() {
 
@@ -299,10 +283,6 @@ class TaskApiIntegrationTest {
         Assertions.assertEquals(1, tagsCount);
     }
 
-    // ---------------------------------------------------------
-    // 4. УДАЛЕНИЕ ЗАДАЧИ УДАЛЯЕТ СВЯЗАННЫЕ ТЕГИ
-    // ---------------------------------------------------------
-
     @Test
     void deleteTask_removeAssociatedTags() {
 
@@ -329,10 +309,6 @@ class TaskApiIntegrationTest {
 
         Assertions.assertEquals(0, tagsCount);
     }
-
-    // ---------------------------------------------------------
-    // 5. СТАТИСТИКА ТОЛЬКО ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ
-    // ---------------------------------------------------------
 
     @Test
     void statistics_returnsOnlyCurrentUsersNumbers() {
@@ -397,10 +373,6 @@ class TaskApiIntegrationTest {
         );
     }
 
-    // ---------------------------------------------------------
-    // 6. БЕЗ ТОКЕНА ДОСТУПА К ЗАДАЧАМ НЕТ
-    // ---------------------------------------------------------
-
     @Test
     void getTasks_withoutToken_returns401() {
 
@@ -409,10 +381,6 @@ class TaskApiIntegrationTest {
                 .exchange()
                 .expectStatus().isUnauthorized();
     }
-
-    // ---------------------------------------------------------
-    // 7. ПОЛЬЗОВАТЕЛЬ ВИДИТ ТОЛЬКО СВОИ ЗАДАЧИ
-    // ---------------------------------------------------------
 
     @Test
     void getTasks_returnsOnlyOwnTasks() {
@@ -445,10 +413,6 @@ class TaskApiIntegrationTest {
         Assertions.assertFalse(titles.contains("Bob task"));
     }
 
-    // ---------------------------------------------------------
-    // 8. ЧУЖУЮ ЗАДАЧУ НЕЛЬЗЯ ПРОЧИТАТЬ
-    // ---------------------------------------------------------
-
     @Test
     void getForeignTask_returns404_andTaskStillExists() {
 
@@ -467,10 +431,6 @@ class TaskApiIntegrationTest {
 
         Assertions.assertEquals(1L, countTasksById(taskId));
     }
-
-    // ---------------------------------------------------------
-    // 9. ЧУЖУЮ ЗАДАЧУ НЕЛЬЗЯ ИЗМЕНИТЬ
-    // ---------------------------------------------------------
 
     @Test
     void updateForeignTask_returns404_andDataDoesNotChange() {
@@ -503,10 +463,6 @@ class TaskApiIntegrationTest {
         Assertions.assertEquals("Original title", actualTitle);
     }
 
-    // ---------------------------------------------------------
-    // 10. ЧУЖУЮ ЗАДАЧУ НЕЛЬЗЯ УДАЛИТЬ
-    // ---------------------------------------------------------
-
     @Test
     void deleteForeignTask_returns404_andTaskStillExists() {
 
@@ -525,10 +481,6 @@ class TaskApiIntegrationTest {
 
         Assertions.assertEquals(1L, countTasksById(taskId));
     }
-
-    // ---------------------------------------------------------
-    // 11. ЧУЖУЮ ЗАДАЧУ НЕЛЬЗЯ ПЕРЕВЕСТИ В ДРУГОЙ СТАТУС
-    // ---------------------------------------------------------
 
     @Test
     void changeForeignTaskStatus_returns404_andStatusUnchanged() {
@@ -558,10 +510,6 @@ class TaskApiIntegrationTest {
         Assertions.assertEquals("NEW", actualStatus);
     }
 
-    // ---------------------------------------------------------
-    // 12. ЧУЖУЮ ЗАДАЧУ НЕЛЬЗЯ ИЗМЕНИТЬ ПО ПРИОРИТЕТУ
-    // ---------------------------------------------------------
-
     @Test
     void changeForeignTaskPriority_returns404_andPriorityUnchanged() {
 
@@ -589,10 +537,6 @@ class TaskApiIntegrationTest {
 
         Assertions.assertEquals("HIGH", actualPriority);
     }
-
-    // ---------------------------------------------------------
-    // 13. НЕЛЬЗЯ ДОБАВИТЬ ТЕГ К ЧУЖОЙ ЗАДАЧЕ
-    // ---------------------------------------------------------
 
     @Test
     void addTagToForeignTask_returns404_andTagNotCreated() {
@@ -622,10 +566,6 @@ class TaskApiIntegrationTest {
         Assertions.assertEquals(0, tagCount);
     }
 
-    // ---------------------------------------------------------
-    // 14. USER НЕ ИМЕЕТ ДОСТУПА К АДМИНСКОМУ СПИСКУ
-    // ---------------------------------------------------------
-
     @Test
     void adminTasks_userRole_returns403() {
 
@@ -634,10 +574,6 @@ class TaskApiIntegrationTest {
                 .exchange()
                 .expectStatus().isForbidden();
     }
-
-    // ---------------------------------------------------------
-    // 15. ADMIN МОЖЕТ ВИДЕТЬ ВСЕ ЗАДАЧИ
-    // ---------------------------------------------------------
 
     @Test
     void adminTasks_adminRole_returns200() {
@@ -648,7 +584,6 @@ class TaskApiIntegrationTest {
                 .param("username", username)
                 .update();
 
-        // Получаем новый JWT: роль записана в токен при входе.
         String adminToken = loginUser(username, TEST_PASSWORD);
 
         WebTestClient adminClient = authenticatedClient(adminToken);
@@ -658,10 +593,6 @@ class TaskApiIntegrationTest {
                 .exchange()
                 .expectStatus().isOk();
     }
-
-    // ---------------------------------------------------------
-    // 16. ПАРОЛЬ ХРАНИТСЯ ХЕШЕМ, А НЕ ОТКРЫТЫМ ТЕКСТОМ
-    // ---------------------------------------------------------
 
     @Test
     void registration_passwordIsHashedAndNotReturned() {
@@ -698,10 +629,6 @@ class TaskApiIntegrationTest {
         );
     }
 
-    // ---------------------------------------------------------
-    // 17. ПОВТОРНАЯ РЕГИСТРАЦИЯ ВОЗВРАЩАЕТ 409
-    // ---------------------------------------------------------
-
     @Test
     void registerDuplicateUsername_returns409_andDatabaseKeepsOneUser() {
 
@@ -724,11 +651,6 @@ class TaskApiIntegrationTest {
 
         Assertions.assertEquals(1, userCount);
     }
-
-    // ---------------------------------------------------------
-    // 18. НЕВЕРНЫЙ ПАРОЛЬ И НЕСУЩЕСТВУЮЩИЙ USERNAME
-    // ДАЮТ ОДИНАКОВЫЙ 401
-    // ---------------------------------------------------------
 
     @Test
     void login_wrongUsernameAndWrongPassword_returnsSame401Error() {
@@ -779,10 +701,6 @@ class TaskApiIntegrationTest {
         );
     }
 
-    // ---------------------------------------------------------
-    // 19. LOGIN НЕ ВОЗВРАЩАЕТ ПАРОЛЬ И ЕГО ХЕШ
-    // ---------------------------------------------------------
-
     @Test
     void login_responseDoesNotContainPasswordOrPasswordHash() {
 
@@ -800,11 +718,62 @@ class TaskApiIntegrationTest {
                 .getResponseBody();
 
         Assertions.assertNotNull(response);
-
         Assertions.assertNotNull(response.get("token"));
 
         Assertions.assertFalse(response.containsKey("password"));
         Assertions.assertFalse(response.containsKey("passwordHash"));
         Assertions.assertFalse(response.containsKey("password_hash"));
+    }
+
+    @Test
+    void actuatorHealth_anonymous_returns200WithoutComponents() {
+
+        Map<?, ?> response = webTestClient.get()
+                .uri("/actuator/health")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(Map.class)
+                .returnResult()
+                .getResponseBody();
+
+        Assertions.assertNotNull(response);
+        Assertions.assertEquals(Map.of("status", "UP"), response);
+    }
+
+    @Test
+    void actuatorInfo_anonymous_returns401() {
+
+        webTestClient.get()
+                .uri("/actuator/info")
+                .exchange()
+                .expectStatus().isUnauthorized();
+    }
+
+    @Test
+    void actuatorInfo_userRole_returns403() {
+
+        rest.get()
+                .uri("/actuator/info")
+                .exchange()
+                .expectStatus().isForbidden();
+    }
+
+    @Test
+    void actuatorInfo_adminRole_returns200() {
+
+        jdbc.sql(
+                        "UPDATE users SET role = 'ADMIN' WHERE username = :username"
+                )
+                .param("username", username)
+                .update();
+
+        String adminToken = loginUser(username, TEST_PASSWORD);
+
+        WebTestClient adminClient = authenticatedClient(adminToken);
+
+        adminClient.get()
+                .uri("/actuator/info")
+                .exchange()
+                .expectStatus().isOk();
     }
 }
