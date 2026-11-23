@@ -13,6 +13,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 
 
 import java.time.LocalDateTime;
@@ -91,7 +93,38 @@ public class ApiExceptionHandler {
         ApiError apiError = new ApiError("TYPE_MISMATCH", message, request.getRequestURI(), LocalDateTime.now());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(apiError);
     }
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiError> handleMethodNotSupported(
+            HttpRequestMethodNotSupportedException exception,
+            HttpServletRequest request) {
 
+        ApiError apiError = new ApiError(
+                "METHOD_NOT_ALLOWED",
+                "HTTP-метод не поддерживается",
+                request.getRequestURI(),
+                LocalDateTime.now()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.METHOD_NOT_ALLOWED)
+                .body(apiError);
+    }
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiError> handleMediaTypeNotSupported(
+            HttpMediaTypeNotSupportedException exception,
+            HttpServletRequest request) {
+
+        ApiError apiError = new ApiError(
+                "UNSUPPORTED_MEDIA_TYPE",
+                "Тип содержимого запроса не поддерживается",
+                request.getRequestURI(),
+                LocalDateTime.now()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+                .body(apiError);
+    }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleAllUncaughtException(Exception exception, HttpServletRequest request) {
@@ -104,4 +137,5 @@ public class ApiExceptionHandler {
         ApiError apiError = new ApiError("INTERNAL_SERVER_ERROR", "Внутренняя ошибка сервера", request.getRequestURI(), LocalDateTime.now());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(apiError);
     }
+
 }

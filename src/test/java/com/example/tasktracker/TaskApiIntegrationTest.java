@@ -22,6 +22,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.junit.jupiter.api.extension.ExtendWith;
+
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -737,7 +741,8 @@ class TaskApiIntegrationTest {
                 .getResponseBody();
 
         Assertions.assertNotNull(response);
-        Assertions.assertEquals(Map.of("status", "UP"), response);
+        Assertions.assertEquals("UP", response.get("status"));
+        Assertions.assertFalse(response.containsKey("components"));
     }
 
     @Test
@@ -776,4 +781,50 @@ class TaskApiIntegrationTest {
                 .exchange()
                 .expectStatus().isOk();
     }
+    @ExtendWith(OutputCaptureExtension.class)
+    @Test
+    void logs_doNotContainPasswordOrToken(CapturedOutput output) {
+
+        String testUsername = "logging_" +
+                UUID.randomUUID().toString().substring(0, 8);
+
+
+        registerUser(testUsername, TEST_PASSWORD);
+
+
+        String token = loginUser(testUsername, TEST_PASSWORD);
+
+
+        WebTestClient client = authenticatedClient(token);
+
+
+        client.get()
+                .uri("/api/tasks")
+                .exchange()
+                .expectStatus().isOk();
+
+
+        String logs = output.getAll();
+
+
+        Assertions.assertFalse(
+                logs.contains(TEST_PASSWORD),
+                "Пароль попал в логи!"
+        );
+
+        Assertions.assertFalse(
+                logs.contains(token),
+                "JWT-токен попал в логи!"
+        );
+    }
+    @Test
+    void createTask_unsupportedMethod_returns405() {
+
+        rest.put()
+                .uri("/api/tasks")
+                .exchange()
+                .expectStatus()
+                .isEqualTo(405);
+    }
+
 }

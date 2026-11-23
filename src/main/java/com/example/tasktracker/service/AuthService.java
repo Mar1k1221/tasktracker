@@ -7,16 +7,20 @@ import com.example.tasktracker.repository.UserRepository;
 
 import com.example.tasktracker.security.JwtProperties;
 import com.example.tasktracker.security.JwtService;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import org.slf4j.Logger;
+
 
 
 @Service
 public class AuthService {
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
@@ -33,13 +37,20 @@ public class AuthService {
         }
         String passwordHash = passwordEncoder.encode(rawPassword);
         AppUser user = new AppUser(username,passwordHash,"USER");
-        return userRepository.save(user);
+        AppUser saved = userRepository.save(user);
+        log.info("Пользователь зарегистрирован username={}",saved.getUsername());
+        return saved;
     }
     public LoginResponse login(String username, String rawPassword){
         AppUser user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Неверное имя пользователя или пароль."));
+                .orElseThrow(() -> {
+                    log.warn("Неудачная попытка входа username={}",username);
+
+        return new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Неверное имя пользователя или пароль.");
+    });
 
         if (!passwordEncoder.matches(rawPassword,user.getPasswordHash())){
+            log.warn("Неудачная попытка входа username={}",username);
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Неверное имя пользователя или пароль.");
 
         }

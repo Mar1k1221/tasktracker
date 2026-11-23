@@ -17,12 +17,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.server.ResponseStatusException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
+
+
 
 @Service
 public class TaskService
 {
+    private static final Logger log = LoggerFactory.getLogger(TaskService.class);
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
 
@@ -53,7 +58,9 @@ public class TaskService
 
         task1.setOwner(owner);
 
-        return taskRepository.save(task1);
+      Task saved =  taskRepository.save(task1);
+      log.info("Создана задача id={} владельцем {}",saved.getId(),username);
+      return saved;
     }
     @Transactional(readOnly = true)
     public Task findById(Long id,String username) {
@@ -70,6 +77,7 @@ public class TaskService
       Task task =  taskRepository.findByIdAndOwner_Username(id,username)
                .orElseThrow(()->new TaskNotFoundException("Обьект с таким id не найден."));
        taskRepository.delete(task);
+       log.info("Задача с id={} была успешно удалена пользователем  {}",task.getId(),username);
     }
 
 
@@ -77,14 +85,15 @@ public class TaskService
     public Task newStatus(Long id, UpdateTaskStatusRequest status,String username) {
         Task t1=taskRepository.findByIdAndOwner_Username(id,username)
         .orElseThrow(() -> new TaskNotFoundException("Обьект с таким id не найден."));
-
+    TaskStatus oldStatus = t1.getStatus();
         if (!t1.getStatus().status_transition(status.getStatus())) {
             throw new InvalidStatusTransitionException("Недопустимый переход статуса: "
                     + t1.getStatus() + " -> " + status.getStatus());
         }
         t1.setStatus(status.getStatus());
-        taskRepository.save(t1);
-        return t1;
+        Task saved = taskRepository.save(t1);
+        log.info("Изменен статус задачи id={} c {} на {} владельцем {}", saved.getId(),oldStatus,saved.getStatus(),username);
+        return saved;
     }
     @Transactional
     public Task newPriority(Long id, TaskPriority priority,String username) {
