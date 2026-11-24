@@ -30,6 +30,7 @@ public class TaskService
     private static final Logger log = LoggerFactory.getLogger(TaskService.class);
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
+    private final List<String> recent = new ArrayList<>();
 
     public TaskService(
             TaskRepository taskRepository,
@@ -59,7 +60,9 @@ public class TaskService
         task1.setOwner(owner);
 
       Task saved =  taskRepository.save(task1);
+        recent.add(task1.getTitle());
       log.info("Создана задача id={} владельцем {}",saved.getId(),username);
+
       return saved;
     }
     @Transactional(readOnly = true)

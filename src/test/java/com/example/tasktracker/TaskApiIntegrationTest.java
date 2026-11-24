@@ -1,5 +1,6 @@
 package com.example.tasktracker;
 
+import com.example.tasktracker.service.TaskService;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -18,14 +19,21 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
+
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
+import com.example.tasktracker.service.TaskService;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.util.ArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -58,6 +66,8 @@ class TaskApiIntegrationTest {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+    @Autowired
+    private TaskService taskService;
 
     private WebTestClient rest;
 
@@ -825,6 +835,163 @@ class TaskApiIntegrationTest {
                 .exchange()
                 .expectStatus()
                 .isEqualTo(405);
+    }
+    @Test
+    void shouldExposeUnsafeArrayListWithParallelRequests() throws Exception {
+
+        int threadCount = 50;
+
+        @SuppressWarnings("unchecked")
+        List<String> recent = (List<String>) ReflectionTestUtils
+                .getField(taskService, "recent");
+
+        Assertions.assertNotNull(recent);
+
+        int before = recent.size();
+
+        CountDownLatch ready = new CountDownLatch(threadCount);
+        CountDownLatch start = new CountDownLatch(1);
+
+        List<Future<Integer>> futures = new ArrayList<>();
+
+        try (ExecutorService pool = Executors.newFixedThreadPool(threadCount)) {
+
+            for (int i = 0; i < threadCount; i++) {
+
+                String title = "Parallel task " + UUID.randomUUID();
+
+                futures.add(pool.submit(() -> {
+
+                    ready.countDown();
+
+                    if (!start.await(10, TimeUnit.SECONDS)) {
+                        throw new IllegalStateException("Не удалось дождаться старта");
+                    }
+
+                    return rest.post()
+                            .uri("/api/tasks")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of(
+                                    "title", title,
+                                    "description", "Parallel test",
+                                    "priority", "HIGH"
+                            ))
+                            .exchange()
+                            .returnResult(String.class)
+                            .getStatus()
+                            .value();
+                }));
+            }
+
+            boolean allReady = ready.await(10, TimeUnit.SECONDS);
+            start.countDown();
+
+            Assertions.assertTrue(allReady, "Не все потоки подготовились к старту");
+
+            List<Integer> statuses = new ArrayList<>();
+
+            for (Future<Integer> future : futures) {
+                statuses.add(future.get(60, TimeUnit.SECONDS));
+            }
+
+            long created = statuses.stream()
+                    .filter(status -> status == 201)
+                    .count();
+
+            System.out.println("HTTP-статусы: " + statuses);
+            System.out.println("Успешно создано задач: " + created);
+        }
+
+        int added = recent.size() - before;
+
+        System.out.println("Ожидалось записей в recent: " + threadCount);
+        System.out.println("Фактически записано: " + added);
+    }
+    @Test
+    void shouldRegisterOnlyOneUserWithSameUsername() throws Exception {
+
+        int threadCount = 50;
+
+        String duplicateUsername = "parallel_" +
+                UUID.randomUUID().toString().replace("-", "");
+
+        CountDownLatch ready = new CountDownLatch(threadCount);
+        CountDownLatch start = new CountDownLatch(1);
+
+        List<Future<Integer>> futures = new ArrayList<>();
+
+        List<Integer> statuses = new ArrayList<>();
+
+        try (ExecutorService pool = Executors.newFixedThreadPool(threadCount)) {
+
+            for (int i = 0; i < threadCount; i++) {
+
+                futures.add(pool.submit(() -> {
+
+                    ready.countDown();
+
+                    if (!start.await(10, TimeUnit.SECONDS)) {
+                        throw new IllegalStateException("Не дождались старта");
+                    }
+
+                    return webTestClient.post()
+                            .uri("/api/auth/register")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of(
+                                    "username", duplicateUsername,
+                                    "password", TEST_PASSWORD
+                            ))
+                            .exchange()
+                            .returnResult(String.class)
+                            .getStatus()
+                            .value();
+                }));
+            }
+
+            boolean allReady = ready.await(10, TimeUnit.SECONDS);
+
+            start.countDown();
+
+            Assertions.assertTrue(allReady,
+                    "Не все потоки подготовились к старту");
+
+            for (Future<Integer> future : futures) {
+                statuses.add(future.get(60, TimeUnit.SECONDS));
+            }
+        }
+
+        long created = statuses.stream()
+                .filter(status -> status == 201)
+                .count();
+
+        long conflicts = statuses.stream()
+                .filter(status -> status == 409)
+                .count();
+
+        long serverErrors = statuses.stream()
+                .filter(status -> status == 500)
+                .count();
+
+        System.out.println("Всего ответов: " + statuses.size());
+        System.out.println("HTTP 201: " + created);
+        System.out.println("HTTP 409: " + conflicts);
+        System.out.println("HTTP 500: " + serverErrors);
+        System.out.println("Все статусы: " + statuses);
+
+        Assertions.assertEquals(50, statuses.size());
+        Assertions.assertEquals(1, created);
+        Assertions.assertEquals(49, conflicts);
+        Assertions.assertEquals(0, serverErrors);
+
+        Long usersCount = jdbc.sql(
+                        "SELECT COUNT(*) FROM users WHERE username = :username")
+                .param("username", duplicateUsername)
+                .query(Long.class)
+                .single();
+
+        System.out.println("Количество пользователей в БД: " + usersCount);
+
+        Assertions.assertEquals(1L, usersCount);
     }
 
 }
